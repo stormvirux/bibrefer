@@ -7,7 +7,15 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 )
+
+type Result struct {
+	extractedDoi string
+	arXivID      string
+}
+
+var wg = sync.WaitGroup{}
 
 func readPdf(fileName string, verbose bool) (*os.File, *pdf.Reader, error) {
 	f, r, err := pdf.Open(fileName)
@@ -21,9 +29,11 @@ func readPdf(fileName string, verbose bool) (*os.File, *pdf.Reader, error) {
 	return f, r, err
 }
 
-func extractData(reader *pdf.Reader) (extractedTitle string, extractedDoi string, arXivID string, err error) {
-	largestFont := 0.0
-	largestFontIndex := 0
+func extractData(reader *pdf.Reader, tmpFile string) (string, string, string, error) {
+	txtPdf, err := os.ReadFile(strings.ReplaceAll(tmpFile, ".pdf", ".txt"))
+	if err != nil {
+		return "", "", "", err
+	}
 
 	pageNumber := 1
 	p := reader.Page(pageNumber)
@@ -31,77 +41,138 @@ func extractData(reader *pdf.Reader) (extractedTitle string, extractedDoi string
 		return "", "", "", nil
 	}
 
-	titleSize := 0
-	titleSizeE := 0
-	texts := p.Content().Text
-	if len(texts) < 1 {
+	textsMeta := p.Content().Text
+	// textsMeta2 := p2.Content().Text
+	// textsMeta = append(textsMeta, textsMeta2...)
+	if len(textsMeta) < 1 {
 		return "", "", "", fmt.Errorf("[Warning !] unable to open the pdf")
 	}
 
-	//fmt.Println(texts)
-	textForDoi := &strings.Builder{}
+	t := make([]pdf.Text, len(textsMeta))
+	copy(t, textsMeta)
 
-	titleFont := map[string]float64{
-		"elsevier": 13.4495,
-	}
-	fontStartIndex := 0
-	prevSize := 0.0
+	wg.Add(2)
+	resulTitle := make(chan string)
+	go findTitle(textsMeta, txtPdf, resulTitle)
+	extractedTitle := <-resulTitle
+
+	resultDoi := make(chan Result)
+	go findDoiID(t, txtPdf, resultDoi)
+	result := <-resultDoi
+	wg.Wait()
+	return extractedTitle, result.extractedDoi, result.arXivID, nil
+}
+
+func findTitle(textMeta []pdf.Text, txtPdf []byte, resulTitle chan string) {
+	defer close(resulTitle)
+	// largestFont := 0.0
+	largestIndex := 0
+	nextLargestIndex := 0
+
+	largestSize := 0
+	nextLargestSize := 0
+
 	var isElsevier bool
-	for i := 0; i < 1000; i++ {
-		textForDoi.WriteString(texts[i].S)
-		isElsevier = strings.Contains(textForDoi.String(), "elsevier")
-		if isElsevier && texts[i].FontSize == titleFont["elsevier"] && prevSize != titleFont["elsevier"] {
-			prevSize = titleFont["elsevier"]
+	var isMdpi bool
+
+	/*titleFont := map[string]map[string]float64{
+		"elsevier": {"max": 13.5, "min": 13.4},
+		"mdpi":     {"max": 17.00, "min": 17.933},
+	}*/
+
+	isElsevier = strings.Contains(string(txtPdf), "elsevier")
+	isMdpi = strings.Contains(string(txtPdf), "mdpi")
+
+	largestIndex, largestSize, nextLargestIndex, nextLargestSize = index(textMeta)
+
+	/*	fontStartIndex := 0
+		prevSize := 0.0*/
+
+	/*	if isElsevier || isMdpi {
+		if isElsevier && textMeta[i].FontSize >= titleFont["elsevier"]["min"] && textMeta[i].
+			FontSize <= titleFont["elsevier"]["max"] && prevSize != texts[i].FontSize {
+			prevSize = texts[i].FontSize
 			fontStartIndex = i
 			titleSizeE = 0
 		}
-		if isElsevier && titleFont["elsevier"] == texts[i].FontSize {
+		if isElsevier && texts[i].FontSize >= titleFont["elsevier"]["min"] && texts[i].FontSize <= titleFont["elsevier"]["max"] {
 			titleSizeE++
 		}
-		if largestFont < texts[i].FontSize {
-			largestFont = texts[i].FontSize
-			largestFontIndex = i
-			titleSize = 0
-		}
-		if largestFont == texts[i].FontSize {
-			titleSize++
-		}
-	}
-
-	t := make([]pdf.Text, len(texts))
-
-	for i := 0; i < len(texts); i++ {
-		t[i] = texts[i]
-	}
-
-	extractedDoi, arXivID = findDoiID(textForDoi, t)
+	}*/
 
 	var title strings.Builder
 	title.Grow(300)
+	var words []pdf.Text
 
-	if isElsevier {
-		largestFontIndex = fontStartIndex
-		titleSize = titleSizeE
+	words = findWords(textMeta[largestIndex : largestSize+largestIndex])
+
+	if isElsevier || isMdpi {
+		words = findWords(textMeta[nextLargestIndex : nextLargestSize+nextLargestIndex])
 	}
-
-	//title := &strings.Builder{}
-
-	words := findWords(texts[largestFontIndex : titleSize+largestFontIndex])
 
 	for _, word := range words {
 		title.WriteString(word.S)
 	}
-	extractedTitle = strings.ReplaceAll(title.String(), "\n", " ")
+	extractedTitle := strings.ReplaceAll(title.String(), "\n", " ")
 
-	return extractedTitle, extractedDoi, arXivID, nil
+	resulTitle <- extractedTitle
+	wg.Done()
 }
 
-func findDoiID(textForDoi *strings.Builder, textsC []pdf.Text) (extractedDoi string, arXivID string) {
+func index(textMeta []pdf.Text) (largestIndex int, largestSize int, nextLargestIndex int, nextLargestSize int) {
+	largest := 0.0
+	largestIndex = 0
+	largestSize = 0
 
+	nextLargest := 0.0
+	nextLargestIndex = 0
+	nextLargestSize = 0
+
+	for i := 0; i < 1000; i++ {
+		if largest < textMeta[i].FontSize {
+			nextLargest = largest
+			nextLargestIndex = largestIndex
+			nextLargestSize = largestSize
+			largest = textMeta[i].FontSize
+			largestIndex = i
+			largestSize = 0
+		} else if textMeta[i].FontSize > nextLargest && textMeta[i].FontSize < largest {
+			nextLargest = textMeta[i].FontSize
+			nextLargestIndex = i
+			nextLargestSize = 0
+		}
+		if largest == textMeta[i].FontSize {
+			largestSize++
+		}
+		if nextLargest == textMeta[i].FontSize {
+			nextLargestSize++
+		}
+	}
+	return largestIndex, largestSize, nextLargestIndex, nextLargestSize
+}
+
+func findDoiID(textsC []pdf.Text, txtPdf []byte, resultDoi chan Result) {
+	defer close(resultDoi)
 	regexDoi := regexp.MustCompile(`(?i)\b10\.(\d+\.*)+/(([^\s.])+\.*)+\b`)
-	for i := 1001; i < len(textsC); i++ {
+
+	textForDoi := &strings.Builder{}
+	for i := 0; i < len(textsC); i++ {
 		textForDoi.WriteString(textsC[i].S)
 	}
+
+	var extractedDoi string
+	var arXivID string
+	/*for i := 0; i < len(textsC); i++ {
+		textForDoi.WriteString(textsC[i].S)
+	}*/
+
+	isElsevier := strings.Contains(string(txtPdf), "elsevier")
+	isMdpi := strings.Contains(string(txtPdf), "mdpi")
+
+	if isElsevier || isMdpi {
+		extractedDoi = regexDoi.FindString(string(txtPdf))
+	}
+
 	isArXiv := strings.Contains(textForDoi.String(), "arXiv")
 	if isArXiv {
 		var regexDoiOld *regexp.Regexp
@@ -114,7 +185,7 @@ func findDoiID(textForDoi *strings.Builder, textsC []pdf.Text) (extractedDoi str
 		extractedDoi = strings.ReplaceAll(extractedDoi, "arXiv:", "")
 		extractedDoi = "10.48550/arXiv." + stripVersion(extractedDoi)
 	}
-	if !isArXiv {
+	if !isArXiv && !isElsevier && !isMdpi {
 		/*if extractedDoi = regexDoi.FindString(textForDoi.String()); extractedDoi == "" {
 			for i := 1001; i < len(textsC); i++ {
 				textForDoi.WriteString(textsC[i].S)
@@ -122,28 +193,37 @@ func findDoiID(textForDoi *strings.Builder, textsC []pdf.Text) (extractedDoi str
 			extractedDoi = regexDoi.FindString(textForDoi.String())
 		}*/
 		allWord := findWords(textsC)
-		temp := []string{}
+		var temp []string
 		for _, t := range allWord {
 			temp = append(temp, t.S)
 		}
 
 		extractedDoi = regexDoi.FindString(strings.Join(temp, " "))
 	}
-	return extractedDoi, arXivID
+	res := new(Result)
+	res.arXivID = arXivID
+	res.extractedDoi = extractedDoi
+
+	resultDoi <- *res
+	wg.Done()
 }
 
 func processPdf(fileName string, verbose bool) (extractedTitle string, extractedDoi string, arXivID string, err error) {
 	f, r, err := readPdf(fileName, verbose)
-
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
-
 	if os.IsNotExist(err) {
 		return "", "", "", err
 	}
 
-	pdf_ := fix.Pdf{Name: fileName}
+	pdF := fix.Pdf{Name: fileName}
+	defer func(path string) {
+		err := os.RemoveAll(path)
+		if err != nil {
+			verbosePrint(verbose, fmt.Sprintf("%s", err), os.Stderr)
+		}
+	}(pdF.TmpDir)
 
 	if err != nil {
 		var msg = []string{"[Info] issue opening pdf -- %v\n" +
@@ -152,36 +232,29 @@ func processPdf(fileName string, verbose bool) (extractedTitle string, extracted
 			"pdf repair failed: %w", "pdf opening after repair failed: %w"}
 
 		var isRecover bool
-		isRecover, f, r, err = errorRecovery(verbose, pdf_, err, msg)
-
-		defer func(path string) {
-			err := os.RemoveAll(path)
-			if err != nil {
-				verbosePrint(verbose, fmt.Sprintf("%s", err), os.Stderr)
-			}
-		}(pdf_.TmpDir)
+		isRecover, f, r, pdF, err = errorRecovery(verbose, pdF, err, msg)
+		defer func(f *os.File) {
+			_ = f.Close()
+		}(f)
 
 		if !isRecover {
 			return "", "", "", err
 		}
 	}
 
-	extractedTitle, extractedDoi, arXivID, err = extractData(r)
+	extractedTitle, extractedDoi, arXivID, err = extractData(r, pdF.TmpFile)
 	if err != nil && extractedTitle == "" {
 		var msg = []string{"%v\n[Info] ghostScript installation detected.\n[Info] Attempting to correct the pdf with ghostscript", "%w", "pdf opening failed: %w"}
 		var isRecover bool
-		isRecover, f, r, err = errorRecovery(verbose, pdf_, err, msg)
-		defer func(path string) {
-			err := os.RemoveAll(path)
-			if err != nil {
-				fmt.Printf("%s", err)
-			}
-		}(pdf_.TmpDir)
+		isRecover, f, r, pdF, err = errorRecovery(verbose, pdF, err, msg)
+		/*defer func(f *os.File) {
+			_ = f.Close()
+		}(f)*/
 
 		if !isRecover {
 			return "", "", "", err
 		}
-		extractedTitle, extractedDoi, arXivID, err = extractData(r)
+		extractedTitle, extractedDoi, arXivID, err = extractData(r, pdF.TmpFile)
 		if err != nil {
 			return "", "", "", fmt.Errorf("%w", err)
 		}
@@ -190,22 +263,22 @@ func processPdf(fileName string, verbose bool) (extractedTitle string, extracted
 	return extractedTitle, extractedDoi, arXivID, nil
 }
 
-func errorRecovery(verbose bool, pdf_ fix.Pdf, err error, msg []string) (bool, *os.File, *pdf.Reader, error) {
+func errorRecovery(verbose bool, pdF fix.Pdf, err error, msg []string) (bool, *os.File, *pdf.Reader, fix.Pdf, error) {
 	gsIsPresent, gsPath := detectGS()
 	if !gsIsPresent {
-		return false, &os.File{}, &pdf.Reader{}, fmt.Errorf("ghostScript not found. Check if bin and lib is in PATH")
+		return false, &os.File{}, &pdf.Reader{}, pdF, fmt.Errorf("ghostScript not found. Check if bin and lib is in PATH")
 	}
 
 	verbosePrint(verbose, fmt.Sprintf(msg[0], err), os.Stderr)
-	err = pdf_.Fix(gsPath)
+	err = pdF.Fix(gsPath)
 	if err != nil {
-		return false, &os.File{}, &pdf.Reader{}, fmt.Errorf(msg[1], err)
+		return false, &os.File{}, &pdf.Reader{}, pdF, fmt.Errorf(msg[1], err)
 	}
 
-	f, r, err := readPdf(pdf_.TmpFile, verbose)
+	f, r, err := readPdf(pdF.TmpFile, verbose)
 	if err != nil {
-		return false, &os.File{}, &pdf.Reader{}, fmt.Errorf(msg[2], err)
+		return false, &os.File{}, &pdf.Reader{}, pdF, fmt.Errorf(msg[2], err)
 	}
 
-	return true, f, r, nil
+	return true, f, r, pdF, nil
 }

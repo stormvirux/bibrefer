@@ -18,7 +18,6 @@ type Pdf struct {
 // The function does not clean up the temp directory handle it separate using the dirPath returned
 // TODO: Implememnt docker based fix
 func (p *Pdf) Fix(gsBinary string) (err error) {
-
 	tempDir := "/tmp"
 	tempFile := "/temp-pub.pdf"
 	absPath := strings.Split(gsBinary, "/")
@@ -38,13 +37,20 @@ func (p *Pdf) Fix(gsBinary string) (err error) {
 	}
 
 	p.TmpFile = p.TmpDir + tempFile
+	txtFile := strings.ReplaceAll(p.TmpFile, ".pdf", ".txt")
 
 	gsCmd := exec.Command(gsBinary, "-q", "-sDEVICE=pdfwrite", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-dFirstPage=1", "-dLastPage=1",
 		"-sOutputFile="+p.TmpFile, p.Name)
 
+	gsCmdTxt := exec.Command(gsBinary, "-q", "-sDEVICE=txtwrite", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sOutputFile="+txtFile, p.TmpFile)
+
 	err = gsCmd.Run()
 	if err != nil {
 		return fmt.Errorf("failure repairing the pdf: %w", err)
+	}
+	err = gsCmdTxt.Run()
+	if err != nil {
+		return fmt.Errorf("failure converting the pdf to text: %w", err)
 	}
 	return nil
 }
