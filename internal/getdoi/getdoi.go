@@ -2,15 +2,17 @@ package getdoi
 
 import (
 	"fmt"
+	"github.com/stormvirux/bibrefer/pkg/request"
+	"os"
 	"path/filepath"
 	"strings"
 )
 
 type App struct{}
 
-// TODO: Write tests
+// TODO: Pass flags to App and initialize with it
 
-func (a *App) Run(query []string, flags []bool) error {
+func (a *App) Run(query []string, flags []bool) (string, error) {
 	var host = "https://api.crossref.org/works"
 
 	var (
@@ -29,21 +31,16 @@ func (a *App) Run(query []string, flags []bool) error {
 		// _ is arXivID
 		extractedTitle, extractedDoi, _, err = processPdf(queryTxt, verbose)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		if verbose {
 			fmt.Printf("\nDetected Title: %s\n", extractedTitle)
 		}
-		// TODO: Maybe use Log.Print
 
 		if extractedDoi != "" {
-			if verbose {
-				fmt.Printf("Detected DOI: %s\n", extractedDoi)
-				return nil
-			}
-			fmt.Println(extractedDoi)
-			return nil
+			verbosePrint(verbose, fmt.Sprintf("Detected DOI: %s\n", extractedDoi), os.Stdout)
+			return extractedDoi, nil
 		}
 		if extractedTitle != "" {
 			queryTxt = extractedTitle
@@ -52,30 +49,23 @@ func (a *App) Run(query []string, flags []bool) error {
 
 	if arxiv {
 		host = "https://api.datacite.org/dois"
-		verbosePrint(verbose, "[Info] Retrieving data from DataCite")
-		extractedDoi, err := doiDataCite(host, queryTxt)
+		verbosePrint(verbose, "[Info] Retrieving data from DataCite", os.Stdout)
+		extractedDoi, err := request.DoiDataCite(host, queryTxt)
 		if err != nil {
-			return fmt.Errorf("%w", err)
+			return "", fmt.Errorf("%w", err)
 		}
 
-		if verbose {
-			fmt.Printf("\nDetected DOI: %s\n ", extractedDoi)
-			return nil
-		}
+		verbosePrint(verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stdout)
 		fmt.Println(extractedDoi)
-		return nil
+		return extractedDoi, nil
 	}
-	verbosePrint(verbose, "[Info] Retrieving data from CrossRef")
-	extractedDoi, err := doiCrossRef(host, queryTxt)
+	verbosePrint(verbose, "[Info] Retrieving data from CrossRef", os.Stdout)
+	extractedDoi, err := request.DoiCrossRef(host, queryTxt)
 	if err != nil {
-		return fmt.Errorf("%w", err)
-	}
-	fmt.Printf("\n")
-	if verbose {
-		fmt.Printf("\nDetected DOI: %s\n ", extractedDoi)
-		return nil
+		return "", fmt.Errorf("%w", err)
 	}
 
+	verbosePrint(verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stderr)
 	fmt.Println(extractedDoi)
-	return nil
+	return extractedDoi, nil
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/stormvirux/bibrefer/internal/getdoi"
+	"os"
 )
 
 var (
@@ -30,13 +31,16 @@ var getdoiCmd = &cobra.Command{
 		}
 		return nil
 	},
+
 	//SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		app := getdoi.App{}
-		if err := app.Run(args, []bool{arxiv, clip, verbose}); err != nil {
-			// _, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
+		doi, err := app.Run(args, []bool{arxiv, clip, verbose})
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
 			return err
 		}
+		fmt.Println(doi)
 		return nil
 	},
 }

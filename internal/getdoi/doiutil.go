@@ -3,6 +3,7 @@ package getdoi
 import (
 	"fmt"
 	"github.com/stormvirux/pdf"
+	"io"
 	"math"
 	"os/exec"
 	"regexp"
@@ -27,9 +28,9 @@ func arxivRegexBuilder() (newRegex *regexp.Regexp, oldRegex *regexp.Regexp) {
 }
 
 // Only use to avoid cyclomatic complexity
-func verbosePrint(isVerbose bool, message string) {
+func verbosePrint(isVerbose bool, message string, stream io.Writer) {
 	if isVerbose {
-		fmt.Println(message)
+		fmt.Fprintln(stream, message)
 	}
 }
 
@@ -101,7 +102,7 @@ func sameFont(f1, _ string) bool {
 	f1 = strings.TrimSuffix(f1, "-Italic")
 	_ = strings.TrimSuffix(f1, ",Italic")
 	f2 := strings.TrimSuffix(f1, "-Italic")
-	return strings.TrimSuffix(f1, ",Italic") == strings.TrimSuffix(f2, ",Italic") || f1 == "Symbol" || f2 == "Symbol" || f1 == "TimesNewRoman" || f2 == "TimesNewRoman"
+	return strings.TrimSuffix(f1, ",Italic") == strings.TrimSuffix(f2, ",Italic") || f1 == "Symbol" || f2 == "Symbol" //|| f1 == "TimesNewRoman" || f2 == "TimesNewRoman"
 }
 
 func stripVersion(arXivID string) string {

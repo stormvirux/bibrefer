@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/goccy/go-json v0.9.7
+	github.com/google/go-cmp v0.5.8
 	github.com/spf13/cobra v1.4.0
 	github.com/stormvirux/pdf v0.0.0-20220607181653-c38aef777843
 )
