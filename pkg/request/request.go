@@ -1,3 +1,19 @@
+/*
+Copyright © 2022 Thaha Mohammed <thaha.mohammed@aalto.fi>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package request
 
 import (
@@ -8,13 +24,15 @@ import (
 	"strings"
 )
 
+const appJson = "application/json"
+
 func DoiDataCite(host string, query string) (string, error) {
 	// host = https://api.datacite.org/dois
 	urlBuilder := &strings.Builder{}
 	urlBuilder.WriteString(host)
 	header := make(map[string]string)
 	header["Accept"] = "application/citeproc+json"
-	header["Content-Type"] = "application/json"
+	header["Content-Type"] = appJson
 	req, err := bibRequest("GET", urlBuilder.String(), nil, header)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
@@ -49,8 +67,8 @@ func DoiCrossRef(host string, query string) (string, error) {
 	urlBuilder := &strings.Builder{}
 	urlBuilder.WriteString(host)
 	header := make(map[string]string)
-	header["Accept"] = "application/json"
-	header["Content-Type"] = "application/json"
+	header["Accept"] = appJson
+	header["Content-Type"] = appJson
 
 	req, err := bibRequest("GET", urlBuilder.String(), nil, header)
 	if err != nil {
