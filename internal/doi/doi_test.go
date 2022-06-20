@@ -1,4 +1,4 @@
-package getdoi
+package doi
 
 import (
 	"github.com/google/go-cmp/cmp"
@@ -23,12 +23,11 @@ func TestApp_RunFile(t *testing.T) {
 		{"repair mdpi", []string{"testdata/test7.pdf"}, []bool{false, true, false}, "10.1109/ACCESS.2018.2846609"},
 		{"repair access", []string{"testdata/test8.pdf"}, []bool{false, true, false}, "10.1016/j.jnca.2016.10.019"},
 		{"repair elseiver", []string{"testdata/test6.pdf"}, []bool{false, true, false}, "10.3390/app9050947"},
-		{"no article name", []string{""}, []bool{false, true, false}, "could not find any article with that name"},
 	}
 
 	for _, tc := range tests {
-		pdfTest := App{}
-		got, _ := pdfTest.Run(tc.query, tc.flags)
+		pdfTest := Doi{Verbose: tc.flags[2], Arxiv: tc.flags[0], Clip: tc.flags[1]}
+		got, _ := pdfTest.Run(tc.query)
 		diff := cmp.Diff(tc.want, got)
 		if diff != "" {
 			t.Fatalf(diff)
@@ -59,8 +58,8 @@ func TestApp_RunCrossRef(t *testing.T) {
 			[]bool{false, false, false}, "10.3390/app9050947"},
 	}
 	for _, tc := range tests {
-		pdfTest := App{}
-		got, _ := pdfTest.Run(tc.query, tc.flags)
+		pdfTest := Doi{Verbose: tc.flags[2], Arxiv: tc.flags[0], Clip: tc.flags[1]}
+		got, _ := pdfTest.Run(tc.query)
 		diff := cmp.Diff(tc.want, got)
 		if diff != "" {
 			t.Fatalf(diff)
@@ -85,8 +84,8 @@ func TestApp_RunDataCite(t *testing.T) {
 			[]bool{true, false, false}, "10.48550/ARXIV.2205.05664"},
 	}
 	for _, tc := range tests {
-		pdfTest := App{}
-		got, _ := pdfTest.Run(tc.query, tc.flags)
+		pdfTest := Doi{Verbose: tc.flags[2], Arxiv: tc.flags[0], Clip: tc.flags[1]}
+		got, _ := pdfTest.Run(tc.query)
 		diff := cmp.Diff(tc.want, got)
 		if diff != "" {
 			t.Fatalf(diff)
