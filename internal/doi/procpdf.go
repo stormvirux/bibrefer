@@ -1,4 +1,4 @@
-package getdoi
+package doi
 
 import (
 	"fmt"

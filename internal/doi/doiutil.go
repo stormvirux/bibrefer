@@ -1,4 +1,4 @@
-package getdoi
+package doi
 
 import (
 	"fmt"
@@ -102,7 +102,7 @@ func sameFont(f1, _ string) bool {
 	f1 = strings.TrimSuffix(f1, "-Italic")
 	_ = strings.TrimSuffix(f1, ",Italic")
 	f2 := strings.TrimSuffix(f1, "-Italic")
-	return strings.TrimSuffix(f1, ",Italic") == strings.TrimSuffix(f2, ",Italic") || f1 == "Symbol" || f2 == "Symbol" //|| f1 == "TimesNewRoman" || f2 == "TimesNewRoman"
+	return strings.TrimSuffix(f1, ",Italic") == strings.TrimSuffix(f2, ",Italic") || f1 == "Symbol" || f2 == "Symbol" // || f1 == "TimesNewRoman" || f2 == "TimesNewRoman"
 }
 
 func stripVersion(arXivID string) string {
