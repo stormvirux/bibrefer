@@ -16,9 +16,15 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
+# github.com/hscells/doi v0.0.0-20170821055049-1a5819c7d576
+## explicit
+github.com/hscells/doi
 # github.com/inconshreveable/mousetrap v1.0.0
 ## explicit
 github.com/inconshreveable/mousetrap
+# github.com/pkg/errors v0.9.1
+## explicit
+github.com/pkg/errors
 # github.com/spf13/cobra v1.4.0
 ## explicit; go 1.15
 github.com/spf13/cobra
