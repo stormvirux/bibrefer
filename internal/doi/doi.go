@@ -1,4 +1,4 @@
-package getdoi
+package doi
 
 import (
 	"fmt"
@@ -8,11 +8,15 @@ import (
 	"strings"
 )
 
-type App struct{}
+type Doi struct {
+	Arxiv   bool
+	Clip    bool
+	Verbose bool
+}
 
-// TODO: Pass flags to App and initialize with it
+// TODO: Pass flags to Doi and initialize with it
 
-func (a *App) Run(query []string, flags []bool) (string, error) {
+func (a *Doi) Run(query []string) (string, error) {
 	var host = "https://api.crossref.org/works"
 
 	var (
@@ -21,25 +25,25 @@ func (a *App) Run(query []string, flags []bool) (string, error) {
 		extractedDoi   string
 		// arXivID        string
 	)
-	arxiv := flags[0]
+	// a.Arxiv := flags[0]
 	// clip := flags[1]
-	verbose := flags[2]
+	// a.Verbose := flags[2]
 	queryTxt = strings.Join(query, " ")
 
 	if ext := filepath.Ext(queryTxt); ext == ".pdf" {
 		var err error
 		// _ is arXivID
-		extractedTitle, extractedDoi, _, err = processPdf(queryTxt, verbose)
+		extractedTitle, extractedDoi, _, err = processPdf(queryTxt, a.Verbose)
 		if err != nil {
 			return "", err
 		}
 
-		if verbose {
+		if a.Verbose {
 			fmt.Printf("\nDetected Title: %s\n", extractedTitle)
 		}
 
 		if extractedDoi != "" {
-			verbosePrint(verbose, fmt.Sprintf("Detected DOI: %s\n", extractedDoi), os.Stdout)
+			verbosePrint(a.Verbose, fmt.Sprintf("Detected DOI: %s\n", extractedDoi), os.Stdout)
 			return extractedDoi, nil
 		}
 		if extractedTitle != "" {
@@ -47,25 +51,25 @@ func (a *App) Run(query []string, flags []bool) (string, error) {
 		}
 	}
 
-	if arxiv {
+	if a.Arxiv {
 		host = "https://api.datacite.org/dois"
-		verbosePrint(verbose, "[Info] Retrieving data from DataCite", os.Stdout)
+		verbosePrint(a.Verbose, "[Info] Retrieving data from DataCite", os.Stdout)
 		extractedDoi, err := request.DoiDataCite(host, queryTxt)
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
 
-		verbosePrint(verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stdout)
-		fmt.Println(extractedDoi)
+		verbosePrint(a.Verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stdout)
+		// fmt.Println(extractedDoi)
 		return extractedDoi, nil
 	}
-	verbosePrint(verbose, "[Info] Retrieving data from CrossRef", os.Stdout)
+	verbosePrint(a.Verbose, "[Info] Retrieving data from CrossRef", os.Stdout)
 	extractedDoi, err := request.DoiCrossRef(host, queryTxt)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
 
-	verbosePrint(verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stderr)
-	fmt.Println(extractedDoi)
+	verbosePrint(a.Verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stderr)
+	// fmt.Println(extractedDoi)
 	return extractedDoi, nil
 }
