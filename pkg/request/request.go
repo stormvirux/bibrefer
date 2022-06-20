@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-const appJson = "application/json"
+const appJSON = "application/json"
 
 func DoiDataCite(host string, query string) (string, error) {
 	// host = https://api.datacite.org/dois
@@ -32,7 +32,7 @@ func DoiDataCite(host string, query string) (string, error) {
 	urlBuilder.WriteString(host)
 	header := make(map[string]string)
 	header["Accept"] = "application/citeproc+json"
-	header["Content-Type"] = appJson
+	header["Content-Type"] = appJSON
 	req, err := bibRequest("GET", urlBuilder.String(), nil, header)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
@@ -67,8 +67,8 @@ func DoiCrossRef(host string, query string) (string, error) {
 	urlBuilder := &strings.Builder{}
 	urlBuilder.WriteString(host)
 	header := make(map[string]string)
-	header["Accept"] = appJson
-	header["Content-Type"] = appJson
+	header["Accept"] = appJSON
+	header["Content-Type"] = appJSON
 
 	req, err := bibRequest("GET", urlBuilder.String(), nil, header)
 	if err != nil {
@@ -100,6 +100,45 @@ func DoiCrossRef(host string, query string) (string, error) {
 		return "", fmt.Errorf("could not find any article with that name")
 	}
 	return data.Message.Items[0].DOI, err
+}
+
+func RefDoi(host string, query string, output string) (string, error) {
+	urlBuilder := &strings.Builder{}
+	urlBuilder.WriteString(host)
+	urlBuilder.WriteString(query)
+	header := make(map[string]string)
+	header["Accept"] = accept(output)
+	req, err := bibRequest("GET", urlBuilder.String(), nil, header)
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+	client := &http.Client{}
+	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", query, host), os.Stdout)
+	res, err := bibDo(client, req, map[string]string{})
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			_ = Body.Close()
+		}
+	}(res.Body)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+	return string(body), err
+}
+
+func accept(output string) string {
+	switch output {
+	case "json":
+		return "application/citeproc+json"
+	case "xml":
+		return "application/rdf+xml"
+	}
+	return "application/x-bibtex"
 }
 
 func bibRequest(method, path string, body io.Reader, query map[string]string) (*http.Request, error) {
