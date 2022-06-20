@@ -19,59 +19,45 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/stormvirux/bibrefer/internal/getdoi"
+	"github.com/stormvirux/bibrefer/internal/doi"
 	"os"
 )
 
 var (
-	clip    bool
-	verbose bool
-	arxiv   bool
+	clip  bool
+	arxiv bool
 )
 
 // doiCmd represents the doi command
 var doiCmd = &cobra.Command{
 	Use:   "doi [flags] <query>",
-	Short: "Returns the publication DOI for a given publication",
+	Short: "Returns the DOI for a given publication name or pdf file",
 	Long: `doi returns the publication DOI for a given publication from either a pdf file, CrossRef, or DataCite (for ArXiv).
 `,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
 			fmt.Printf("\n")
-			return fmt.Errorf("missing query. Expected atleast one query. Enter the file name or title of publication\n ")
+			return fmt.Errorf("missing query. Expected atleast one query. Provide a file name or title of publication\n ")
 		}
 		return nil
 	},
 
 	//SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		app := getdoi.App{}
-		doi, err := app.Run(args, []bool{arxiv, clip, verbose})
+		app := doi.Doi{Arxiv: arxiv, Verbose: verbose, Clip: clip}
+		doi, err := app.Run(args)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
 			return err
 		}
-		fmt.Println(doi)
+		fmt.Printf("%s", doi)
 		return nil
 	},
 }
 
-/*const doiUsage = `doi returns the publication DOI for a given publication from either a pdf file, CrossRef, or DataCite (for ArXiv).
-
-Usage:
-  bibrefer getdoi [flags] <query>
-
-Flags:
-  -c, --clip       copy the DOI to clipboard
-  -d, --datacite   retrieve the DOI from DataCite (for ArXiv)
-  -h, --help       help for getdoi
-  -V, --verbose    show verbose information
-
-
-`*/
-
-func doiUsage(cmd *cobra.Command) string {
-	return `Usage:{{if .Runnable}}
+func doiUsage() string {
+	return `
+Usage: {{if .Runnable}}
   {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
   {{.CommandPath}} [command] <query> {{end}}{{if gt (len .Aliases) 0}}
 Aliases:
@@ -85,7 +71,8 @@ Flags:
 {{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
 
 Query:
-  can consist of a publication title or a PDF file. For publication title (not file) from arXiv use -d/--datacite flag to fetch the doi from DataCite.{{if .HasAvailableInheritedFlags}}
+  {{with $x := "can consist of a publication title or a PDF file. For publication title (not file) from arXiv use -d/--datacite flag to fetch the doi from DataCite"}}{{$x}}{{end}}.{{if .HasAvailableInheritedFlags}}
+
 Global Flags:
 {{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
 Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
@@ -109,12 +96,12 @@ func init() {
 
 	doiCmd.Flags().BoolVarP(&clip, "clip", "c", false,
 		"copy the DOI to clipboard")
-	doiCmd.Flags().BoolVarP(&verbose, "verbose", "V", false,
-		"show verbose information")
+	// doiCmd.Flags().BoolVarP(&verbose, "verbose", "V", false,
+	//	"show verbose information")
 	doiCmd.Flags().BoolVarP(&arxiv, "datacite", "d", false,
 		"retrieve the DOI from DataCite (for ArXiv)")
 
-	doiCmd.SetUsageTemplate(doiUsage(doiCmd))
+	doiCmd.SetUsageTemplate(doiUsage())
 	// doiCmd.SetHelpTemplate(doiCmd.UsageTemplate())
 }
 
@@ -133,5 +120,3 @@ func init() {
 	}
 	return []string{query}, nil
 }*/
-
-// TODO: Update template from Cobra go template

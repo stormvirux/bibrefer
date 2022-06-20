@@ -22,25 +22,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.0.1"
+var version = "0.0.8"
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     `bibrefer`,
 	Version: version,
-	Short:   "Search and retrieve references for research articles with name or DOI",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short:   "Search and retrieve doi or references for research articles",
+	Long: `Bibrefer is a CLI application that can retrieve DOI and reference of a scholarly publication.
+The DOI is obtained either from a pdf or the name of the article. 
+The reference is fetched with DOI, pdf, or name of the article.  
+`,
 
 	Run: func(cmd *cobra.Command, args []string) {},
+	Example: `  bibrefer ref 10.1016/j.jnca.2016.10.019
+  bibrefer doi An Analysis of fault detection strategies in wsn
+  bibrefer doi article1.pdf
+`,
 }
 
 var (
 	License bool
+	verbose bool
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -50,6 +53,44 @@ func Execute() {
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+func rootUsage() string {
+	return `
+Usage: {{if .Runnable}}
+{{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+{{.CommandPath}} [command] {{end}}{{if gt (len .Aliases) 0}}
+
+Aliases:
+  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+
+Examples:
+{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+Global Flags:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`
+}
+
+func helpUsage() string {
+	return `  ____  _ _     ____       __            
+ | __ )(_) |__ |  _ \ ___ / _| ___ _ __  
+ |  _ \| | '_ \| |_) / _ \ |_ / _ \ '__| 
+ | |_) | | |_) |  _ <  __/  _|  __/ |    
+ |____/|_|_.__/|_| \_\___|_|  \___|_|    
+
+{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}
+{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
 }
 
 func init() {
@@ -64,5 +105,8 @@ func init() {
 
 	rootCmd.Flags().BoolVarP(&License, "license", "l", false,
 		"show license information")
-
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "V", false,
+		"show verbose information")
+	rootCmd.SetUsageTemplate(rootUsage())
+	rootCmd.SetHelpTemplate(helpUsage())
 }
