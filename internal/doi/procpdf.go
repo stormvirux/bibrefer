@@ -246,7 +246,7 @@ func processPdf(fileName string, verbose bool) (extractedTitle string, extracted
 	if err != nil && extractedTitle == "" {
 		var msg = []string{"%v\n[Info] ghostScript installation detected.\n[Info] Attempting to correct the pdf with ghostscript", "%w", "pdf opening failed: %w"}
 		var isRecover bool
-		isRecover, f, r, pdF, err = errorRecovery(verbose, pdF, err, msg)
+		isRecover, _, r, pdF, err = errorRecovery(verbose, pdF, err, msg)
 		/*defer func(f *os.File) {
 			_ = f.Close()
 		}(f)*/
