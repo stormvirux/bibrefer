@@ -5,6 +5,7 @@ import (
 	"github.com/stormvirux/pdf"
 	"io"
 	"math"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -27,10 +28,10 @@ func arxivRegexBuilder() (newRegex *regexp.Regexp, oldRegex *regexp.Regexp) {
 	return newRegex, oldRegex
 }
 
-// Only use to avoid cyclomatic complexity
+// Only use to avoid cyclomatic complexity.
 func verbosePrint(isVerbose bool, message string, stream io.Writer) {
 	if isVerbose {
-		fmt.Fprintln(stream, message)
+		_, _ = fmt.Fprintln(stream, message)
 	}
 }
 
@@ -117,8 +118,7 @@ func detectGS() (bool, string) {
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// TODO: Log the above
-		fmt.Errorf("%w", err)
+		verbosePrint(false, fmt.Sprintf("%s", err), os.Stdout)
 		return false, ""
 	}
 	return string(output) != "", string(output)

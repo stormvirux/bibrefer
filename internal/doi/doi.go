@@ -17,7 +17,6 @@ type Doi struct {
 // TODO: Pass flags to Doi and initialize with it
 
 func (a *Doi) Run(query []string) (string, error) {
-	var host = "https://api.crossref.org/works"
 
 	var (
 		queryTxt       string
@@ -52,9 +51,8 @@ func (a *Doi) Run(query []string) (string, error) {
 	}
 
 	if a.Arxiv {
-		host = "https://api.datacite.org/dois"
 		verbosePrint(a.Verbose, "[Info] Retrieving data from DataCite", os.Stdout)
-		extractedDoi, err := request.DoiDataCite(host, queryTxt)
+		extractedDoi, err := request.DoiDataCite(queryTxt)
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
@@ -64,7 +62,7 @@ func (a *Doi) Run(query []string) (string, error) {
 		return extractedDoi, nil
 	}
 	verbosePrint(a.Verbose, "[Info] Retrieving data from CrossRef", os.Stdout)
-	extractedDoi, err := request.DoiCrossRef(host, queryTxt)
+	extractedDoi, err := request.DoiCrossRef(queryTxt)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
