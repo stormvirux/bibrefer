@@ -62,6 +62,7 @@ func TestApp_RunCrossRef(t *testing.T) {
 		got, _ := pdfTest.Run(tc.query)
 		diff := cmp.Diff(tc.want, got)
 		if diff != "" {
+			t.Logf(tc.name)
 			t.Fatalf(diff)
 		}
 	}
