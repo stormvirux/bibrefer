@@ -30,9 +30,11 @@ type Pdf struct {
 	TmpDir  string
 }
 
-// Fix binaryName can be the name/path of the gs binary obtained with `which` in Linux and `where` in Windows
+// Fix gsBinary can be the name/path of the gs binary obtained with `which` in Linux and `where` in Windows
 // The function does not clean up the temp directory handle it separate using the dirPath returned
-// TODO: Implement docker based fix
+// TODO: Implement docker based fix.
+// TODO: Comment Public functions
+// TODO: Create doc
 func (p *Pdf) Fix(gsBinary string) (err error) {
 	tempDir := "/tmp"
 	tempFile := "/temp-pub.pdf"
