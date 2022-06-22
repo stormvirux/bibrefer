@@ -21,7 +21,6 @@ type Ref struct {
 }
 
 func (r *Ref) Run(query []string) (string, error) {
-	var host = "https://doi.org/"
 	/*r.BibKey := flags[0]
 	r.FullJournal := flags[1]
 	r.FullAuthor := flags[2]
@@ -37,11 +36,17 @@ func (r *Ref) Run(query []string) (string, error) {
 		return "", nil
 	}
 	verbosePrint(r.Verbose, fmt.Sprintf("Provided valid DOI: %s", strippedDoi), os.Stdout)
-	reference, err := request.RefDoi(host, doiTxt, r.Output)
+	isValidOutput := r.Output == "json" || r.Output == "bibtex" || r.Output == "xml"
+	if !isValidOutput {
+		return "", fmt.Errorf("invalid output format: %s", r.Output)
+	}
+	reference, err := request.RefDoi(doiTxt, r.Output)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-
+	if strings.Contains(reference, "DOI cannot be found") {
+		return "", fmt.Errorf("DOI cannot be found")
+	}
 	verbosePrint(r.Verbose, fmt.Sprintf("Refernce for DOI: %s obtained", strippedDoi), os.Stdout)
 
 	if r.Output != "bibtex" {
@@ -59,7 +64,6 @@ func (r *Ref) Run(query []string) (string, error) {
 	if r.NoNewline {
 		return "\n" + finalBib, nil
 	}
-	fmt.Println()
 	return finalBib + "\n", nil
 }
 
@@ -81,30 +85,32 @@ func verifyDOI(doiTxt string) (isValid bool, validDoi string) {
 func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry string, verbose bool) string {
 	bibLineByLine := strings.Split(bibEntry, "\n")
 	bibIndices := getIndexBib(bibLineByLine)
+	var lName []string
 
 	var indices []uint
-	var firstAuthLName []string
 
-	if !fullAuthor && bibIndices["authorIndex"] != 255 {
+	if bibIndices["authorIndex"] != 255 {
 		verbosePrint(verbose, "Abbreviating the author names", os.Stdout)
 		r1 := regexp.MustCompile(`[{](?P<name>[\p{L},?\s.'{}\\-]+)[}]`)
 		authorField := r1.FindStringSubmatch(bibLineByLine[bibIndices["authorIndex"]])
 		r1Index := r1.SubexpIndex("name")
 		authors := strings.Split(authorField[r1Index], "and")
-		var newAuthor strings.Builder
-		newAuthor.Grow(100)
-		// r2 := regexp.MustCompile(`^\s*([\p{Lu}\\{}])[\p{L}-.'\\{}]+,?[\t\v ]+((?:[\p{L}-.'\\{}]*[\t \v]*)+)?$`)
-		for i := 0; i < len(authors); i++ {
-			author := strings.Split(strings.TrimSpace(authors[i]), " ")
-			newAuthor.Reset()
-			for j := 0; j < len(author)-1; j++ {
-				newAuthor.WriteString(author[j][0:1])
-				newAuthor.WriteString(". ")
+		if !fullAuthor {
+			var newAuthor strings.Builder
+			newAuthor.Grow(100)
+			for i := 0; i < len(authors); i++ {
+				author := strings.Split(strings.TrimSpace(authors[i]), " ")
+				newAuthor.Reset()
+				for j := 0; j < len(author)-1; j++ {
+					newAuthor.WriteString(author[j][0:1])
+					newAuthor.WriteString(". ")
+				}
+				authors[i] = newAuthor.String() + author[len(author)-1] // r2.ReplaceAllString(authors[i], "$1. $2")
 			}
-			authors[i] = newAuthor.String() + author[len(author)-1] // r2.ReplaceAllString(authors[i], "$1. $2")
+			// firstAuthLName = strings.Split(strings.TrimSpace(authors[0]), " ")
+			bibLineByLine[bibIndices["authorIndex"]] = strings.ReplaceAll(bibLineByLine[bibIndices["authorIndex"]], authorField[r1Index], strings.Join(authors, " and "))
 		}
-		firstAuthLName = strings.Split(strings.TrimSpace(authors[0]), " ")
-		bibLineByLine[bibIndices["authorIndex"]] = strings.ReplaceAll(bibLineByLine[bibIndices["authorIndex"]], authorField[r1Index], strings.Join(authors, " and "))
+		lName = strings.Split(strings.TrimSpace(authors[0]), " ")
 	}
 
 	isArXiv := strings.Contains(bibLineByLine[0], "arxiv")
@@ -127,7 +133,7 @@ func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry 
 	if !bibKey && isArXiv {
 		r := regexp.MustCompile(`\s*year\s?=\s?\{(\d{4})},`)
 		yearString := r.ReplaceAllString(bibLineByLine[bibIndices["yearIndex"]], "$1")
-		replaceString := `@misc{` + firstAuthLName[len(firstAuthLName)-1] + `:` + yearString + `:ArXiv,`
+		replaceString := `@misc{` + lName[len(lName)-1] + `:` + yearString + `:ArXiv,`
 		bibLineByLine[0] = strings.ReplaceAll(bibLineByLine[0], bibLineByLine[0], replaceString)
 	}
 
@@ -144,18 +150,18 @@ func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry 
 	if bibIndices["urlIndex"] != 255 && bibIndices["monthIndex"] != 255 {
 		if bibIndices["urlIndex"] < bibIndices["monthIndex"] {
 			indices = append(indices, bibIndices["urlIndex"], bibIndices["monthIndex"])
-			return strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n")
+			return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
 		}
 		indices = append(indices, bibIndices["monthIndex"], bibIndices["urlIndex"])
-		return strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n")
+		return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
 	}
 
 	if bibIndices["urlIndex"] == 255 {
 		indices = append(indices, bibIndices["monthIndex"])
-		return strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n")
+		return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
 	}
 	indices = append(indices, bibIndices["urlIndex"])
-	return strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n")
+	return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
 }
 
 func removeTwoIndexLinear(s []string, indices []uint) []string {
