@@ -22,12 +22,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const appJSON = "application/json"
 
-func DoiDataCite(host string, query string) (string, error) {
-	// host = https://api.datacite.org/dois
+func DoiDataCite(query string) (string, error) {
+	var host = "https://api.datacite.org/dois"
 	urlBuilder := &strings.Builder{}
 	urlBuilder.WriteString(host)
 	header := make(map[string]string)
@@ -37,7 +38,7 @@ func DoiDataCite(host string, query string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Second}
 	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", strippedDoi, host))
 	urlQuery := make(map[string]string)
 	urlQuery["query"] = "titles.title:" + query
@@ -63,7 +64,8 @@ func DoiDataCite(host string, query string) (string, error) {
 	return data[0].DOI, err
 }
 
-func DoiCrossRef(host string, query string) (string, error) {
+func DoiCrossRef(query string) (string, error) {
+	var host = "https://api.crossref.org/works"
 	urlBuilder := &strings.Builder{}
 	urlBuilder.WriteString(host)
 	header := make(map[string]string)
@@ -74,7 +76,7 @@ func DoiCrossRef(host string, query string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Second}
 	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", strippedDoi, host))
 	urlQuery := make(map[string]string)
 	urlQuery["rows"] = "1"
@@ -102,7 +104,8 @@ func DoiCrossRef(host string, query string) (string, error) {
 	return data.Message.Items[0].DOI, err
 }
 
-func RefDoi(host string, query string, output string) (string, error) {
+func RefDoi(query string, output string) (string, error) {
+	var host = "https://doi.org/"
 	urlBuilder := &strings.Builder{}
 	urlBuilder.WriteString(host)
 	urlBuilder.WriteString(query)
@@ -112,7 +115,7 @@ func RefDoi(host string, query string, output string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Second}
 	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", query, host), os.Stdout)
 	res, err := bibDo(client, req, map[string]string{})
 	if err != nil {
