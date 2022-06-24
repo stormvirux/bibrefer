@@ -33,8 +33,8 @@ type Pdf struct {
 // Fix gsBinary can be the name/path of the gs binary obtained with `which` in Linux and `where` in Windows
 // The function does not clean up the temp directory handle it separate using the dirPath returned
 // TODO: Implement docker based fix.
-// TODO: Comment Public functions
-// TODO: Create doc
+// TODO: Comment Public functions and create go doc for the package
+
 func (p *Pdf) Fix(gsBinary string) (err error) {
 	tempDir := "/tmp"
 	tempFile := "/temp-pub.pdf"

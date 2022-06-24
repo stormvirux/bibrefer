@@ -14,10 +14,7 @@ type Doi struct {
 	Verbose bool
 }
 
-// TODO: Pass flags to Doi and initialize with it
-
 func (a *Doi) Run(query []string) (string, error) {
-
 	var (
 		queryTxt       string
 		extractedTitle string

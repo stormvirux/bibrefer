@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// refCmd represents the getref command
+// refCmd represents the getref command.
 var refCmd = &cobra.Command{
 	Use:   "ref [flags] <query>",
 	Short: "Returns the reference of the given DOI, name, or pdf file",

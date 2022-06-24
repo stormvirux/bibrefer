@@ -44,7 +44,7 @@ func getIndexBib(bibLinebyline []string) map[string]uint {
 	return indexMap
 }
 
-// Only use to avoid cyclomatic complexity
+// Only use to avoid cyclomatic complexity.
 func verbosePrint(isVerbose bool, message string, stream io.Writer) {
 	if isVerbose {
 		_, _ = fmt.Fprintln(stream, message)
