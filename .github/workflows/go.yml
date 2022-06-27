@@ -73,10 +73,16 @@ jobs:
 
   # workflow name
   generate:
-    needs: [build]
-    if: github.ref == 'refs/heads/main'
     name: Generate cross-platform builds
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch event for release
-        shell: bash
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+      - name: Generate build files
+        uses: stormvirux/go-cross-build@v1
+        with:
+            platforms: 'linux/amd64, darwin/amd64, darwin/arm64, windows/amd64'
+            package: ''
+            name: 'bibrefer'
+            compress: 'true'
+            dest: './bin
