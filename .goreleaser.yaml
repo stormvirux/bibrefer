@@ -1,0 +1,24 @@
+# .goreleaser.yaml
+project_name: bibrefer
+
+builds:
+    goos:
+      - darwin
+      - linux
+      - windows
+
+    goarch:
+      - amd64
+      - arm64
+
+    goamd64:
+      - v1
+
+    # List of combinations of GOOS + GOARCH + GOARM to ignore.
+    # Default is empty.
+    ignore:
+      - goos: linux
+        goarch: arm64
+      - goos: windows
+        goarch: arm64
+      - goamd64: v4
