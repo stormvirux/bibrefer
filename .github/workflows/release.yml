@@ -2,10 +2,10 @@ name: goreleaser
 
 on: repository_dispatch
  
- permissions:
-  contents: write
+permissions:
+ contents: write
   
- jobs:
+jobs:
   generate:
     name: Generate cross-platform builds
     runs-on: ubuntu-latest
