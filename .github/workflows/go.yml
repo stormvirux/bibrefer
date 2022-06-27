@@ -85,4 +85,4 @@ jobs:
             package: ''
             name: 'bibrefer'
             compress: 'true'
-            dest: './bin
+            dest: './bin'
