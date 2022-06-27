@@ -13,12 +13,15 @@ permissions:
   # pull-requests: read
 jobs:
   golangci:
+    strategy:
+      matrix:
+        go-version: [1.18.x]
     name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.18x
+          go-version: ${{ matrix.go }}
       - uses: actions/checkout@v3
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
