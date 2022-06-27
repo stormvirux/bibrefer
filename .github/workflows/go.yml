@@ -73,6 +73,7 @@ jobs:
 
   # workflow name
   generate:
+    needs: [build]
     name: Generate cross-platform builds
     runs-on: ubuntu-latest
     steps:
