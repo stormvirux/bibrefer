@@ -2,6 +2,7 @@
 project_name: bibrefer
 
 builds:
+  - binary: bibrefer
     goos:
       - darwin
       - linux
