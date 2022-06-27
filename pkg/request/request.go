@@ -27,6 +27,7 @@ import (
 
 const appJSON = "application/json"
 
+// DoiDataCite accepts the title name as a query and returns the DOI as string from DataCite API along with error.
 func DoiDataCite(query string) (string, error) {
 	var host = "https://api.datacite.org/dois"
 	urlBuilder := &strings.Builder{}
@@ -64,6 +65,7 @@ func DoiDataCite(query string) (string, error) {
 	return data[0].DOI, err
 }
 
+// DoiCrossRef accepts the title name as a query and returns the DOI as string from CrossRef API along with error.
 func DoiCrossRef(query string) (string, error) {
 	var host = "https://api.crossref.org/works"
 	urlBuilder := &strings.Builder{}
@@ -104,6 +106,8 @@ func DoiCrossRef(query string) (string, error) {
 	return data.Message.Items[0].DOI, err
 }
 
+// RefDoi accepts the DOI as a query and the output format and returns the reference as string from doi.org API along with error.
+// The output format can be json, xml or bibtex.
 func RefDoi(query string, output string) (string, error) {
 	var host = "https://doi.org/"
 	urlBuilder := &strings.Builder{}
