@@ -32,9 +32,9 @@ jobs:
       run: go vet ./...
       
     - name: Test
-      run: |
-      go test -v ./internal/...
-      go test -v ./pkg/request/...
+      run: [go test -v ./internal/..., go test -v ./pkg/request/...]
+
+
       
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
