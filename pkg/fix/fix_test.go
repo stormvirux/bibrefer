@@ -9,7 +9,7 @@ import (
 
 func TestPdf_Fix(t *testing.T) {
 	var err = errors.New(`failure repairing the pdf: fork/exec : no such file or directory`)
-	var errMacOs = errors.New(`failure repairing the pdf: fork: no such command`)
+	var errMacOs = errors.New(`failure repairing the pdf: exec: no such command`)
 	var err2 = errors.New("failure repairing the pdf: exec: \"gssfedfe\": executable file not found in $PATH")
 	tests := []struct {
 		name    string
