@@ -4,7 +4,7 @@ Returns the reference of the given DOI, name, or pdf file
 
 ### Synopsis
 
-ref returns the the reference of a given DOI, name, or pdf file
+ref returns the reference of a given DOI, name, or pdf file
 
 
 ```
