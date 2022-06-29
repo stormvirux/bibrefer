@@ -3,7 +3,6 @@ package fix
 import (
 	"errors"
 	"github.com/google/go-cmp/cmp"
-	"runtime"
 	"testing"
 )
 
@@ -26,17 +25,17 @@ func TestPdf_Fix(t *testing.T) {
 	for _, tc := range tests {
 		pdfTest := Pdf{Name: tc.pdfName}
 		got := pdfTest.Fix(tc.binary)
-		var diff string
-		diff = cmp.Diff(tc.want, got)
-		if got != nil && runtime.GOOS == "darwin" {
-			diff = cmp.Diff(tc.wantMac.Error(), got.Error())
-		} else if got != nil {
-			diff = cmp.Diff(tc.want.Error(), got.Error())
+		var diff1 string
+		var diff2 string
+		diff1 = cmp.Diff(tc.want, got)
+		diff2 = cmp.Diff(tc.wantMac, got)
+		if got != nil {
+			diff1 = cmp.Diff(tc.wantMac.Error(), got.Error())
+			diff2 = cmp.Diff(tc.want.Error(), got.Error())
 		}
-
-		if diff != "" {
+		if diff1 != "" && diff2 != "" {
 			t.Logf("%s", tc.name)
-			t.Fatalf(diff)
+			t.Fatalf(diff1, diff2)
 		}
 	}
 
