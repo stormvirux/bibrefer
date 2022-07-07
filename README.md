@@ -6,10 +6,10 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B32136%2Fgithub.com%2Fstormvirux%2Fbibrefer.svg?type=shield)](https://app.fossa.com/projects/custom%2B32136%2Fgithub.com%2Fstormvirux%2Fbibrefer?ref=badge_shield)
 
 Bibrefer is a CLI application written in pure Go that can fetch consistent references of publications in bibtex, json, 
-or xml formats. Influenced by scholarref, a collection of POSIX shell scripts, Bibref is a faster cross-platform solution 
+or xml formats. Influenced by [scholarref](https://adamsgaard.dk/scholarref.html), a collection of POSIX shell scripts, Bibref is a faster cross-platform solution 
 that enhances the functionalities of scholarref. Bibrefer is almost free of external dependencies except in small use-cases 
 where the reference need to be extracted from a pdf file with corrupted xref table. In such cases, bibrefer shall attempt to
-use ghostscript if installed to repair the pdf to extract the references.
+use ghostscript if installed, to repair the pdf and extract the references.
 
 
 Bifrefer consists of two sub commands:  `doi` and `ref`. The `doi` sub command is used to fetch DOI using a given publication name
