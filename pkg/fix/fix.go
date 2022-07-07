@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -38,16 +39,15 @@ type Pdf struct {
 // the gs binary obtained with `which` in Linux and `where` in Windows.
 func (p *Pdf) Fix(gsBinary string) (err error) {
 	tempDir := "/tmp"
-	tempFile := "/temp-pub.pdf"
-	absPath := strings.Split(gsBinary, "/")
+	tempFile := "temp-pub.pdf"
+	_, gsBinary = filepath.Split(gsBinary)
 
 	if runtime.GOOS == "windows" {
-		tempDir = "%userprofile%\\AppData\\Local\\Temp"
-		tempFile = "\\temp-pub.pdf"
-		absPath = strings.Split(gsBinary, "\\")
+		tempDir = filepath.Join("%userprofile%", "AppData", "Local", "Temp")
+		// absPath = strings.Split(gsBinary, "\\")
 	}
 
-	gsBinary = strings.TrimSpace(absPath[len(absPath)-1])
+	gsBinary = strings.TrimSpace(gsBinary)
 
 	p.TmpDir, err = os.MkdirTemp(tempDir, "bibrefer-")
 
@@ -55,7 +55,7 @@ func (p *Pdf) Fix(gsBinary string) (err error) {
 		return fmt.Errorf("error creating a temp folder: %w", err)
 	}
 
-	p.TmpFile = p.TmpDir + tempFile
+	p.TmpFile = filepath.Join(p.TmpDir, tempFile)
 	txtFile := strings.ReplaceAll(p.TmpFile, ".pdf", ".txt")
 
 	cmdArgs := "-sOutputFile=" + p.TmpFile

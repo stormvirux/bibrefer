@@ -31,6 +31,7 @@ func TestApp_RunFile(t *testing.T) {
 		diff := cmp.Diff(tc.want, got)
 		if diff != "" {
 			t.Logf(tc.name)
+			t.Logf(got)
 			t.Fatalf(diff)
 		}
 	}
