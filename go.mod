@@ -9,6 +9,7 @@ require (
 	github.com/nickng/bibtex v1.1.0
 	github.com/spf13/cobra v1.4.0
 	github.com/stormvirux/pdf v0.0.0-20220607181653-c38aef777843
+	go4.org v0.0.0-20201209231011-d4a079459e60
 )
 
 require (

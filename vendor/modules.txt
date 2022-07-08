@@ -37,3 +37,6 @@ github.com/spf13/pflag
 # github.com/stormvirux/pdf v0.0.0-20220607181653-c38aef777843
 ## explicit; go 1.18
 github.com/stormvirux/pdf
+# go4.org v0.0.0-20201209231011-d4a079459e60
+## explicit; go 1.13
+go4.org/bytereplacer
