@@ -3,7 +3,9 @@ package ref
 import (
 	"fmt"
 	"github.com/hscells/doi"
+	"github.com/nickng/bibtex"
 	"github.com/stormvirux/bibrefer/pkg/request"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -21,12 +23,6 @@ type Ref struct {
 }
 
 func (r *Ref) Run(query []string) (string, error) {
-	/*r.BibKey := flags[0]
-	r.FullJournal := flags[1]
-	r.FullAuthor := flags[2]
-	r.NoNewline := flags[3]
-	r.Verbose := flags[4]*/
-
 	// doiUser := query
 	doiTxt := query[0]
 
@@ -70,10 +66,12 @@ func (r *Ref) Run(query []string) (string, error) {
 func verifyDOI(doiTxt string) (isValid bool, validDoi string) {
 	r := regexp.MustCompile(`(?i)(https?://)?(?:[^/.\s]+\.)*([a-zA-Z]*\.[a-zA-Z]*/|dx\.doi\.org/|doi\.acm\.org/)`)
 	strippedDOI := r.ReplaceAllString(doiTxt, "")
+	// fmt.Printf("The %s: %v\n", doiTxt, strippedDOI)
 	d, err := doi.Parse(strippedDOI)
 	if err != nil {
-		println(err)
-		println(d.ToString())
+		verbosePrint(true, fmt.Sprintf("%v", err), os.Stderr)
+		toString, _ := d.ToString()
+		verbosePrint(true, toString, os.Stderr)
 	}
 	if !d.IsValid() {
 		fmt.Println("Invalid DOI")
@@ -82,19 +80,17 @@ func verifyDOI(doiTxt string) (isValid bool, validDoi string) {
 	return true, strippedDOI
 }
 
+// Todo: Use Bib parser to modify the reference
 func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry string, verbose bool) string {
-	bibLineByLine := strings.Split(bibEntry, "\n")
-	bibIndices := getIndexBib(bibLineByLine)
+	entry, err := bibtex.Parse(strings.NewReader(bibEntry))
+	if err != nil {
+		log.Println(err)
+	}
+	curEntry := entry.Entries[0]
 	var lName []string
 
-	var indices []uint
-
-	if bibIndices["authorIndex"] != 255 {
-		verbosePrint(verbose, "Abbreviating the author names", os.Stdout)
-		r1 := regexp.MustCompile(`[{](?P<name>[\p{L},?\s.'{}\\-]+)[}]`)
-		authorField := r1.FindStringSubmatch(bibLineByLine[bibIndices["authorIndex"]])
-		r1Index := r1.SubexpIndex("name")
-		authors := strings.Split(authorField[r1Index], "and")
+	if author, ok := curEntry.Fields["author"]; ok {
+		authors := strings.Split(author.String(), "and")
 		if !fullAuthor {
 			var newAuthor strings.Builder
 			newAuthor.Grow(100)
@@ -105,63 +101,44 @@ func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry 
 					newAuthor.WriteString(author[j][0:1])
 					newAuthor.WriteString(". ")
 				}
-				authors[i] = newAuthor.String() + author[len(author)-1] // r2.ReplaceAllString(authors[i], "$1. $2")
+				authors[i] = newAuthor.String() + author[len(author)-1]
 			}
-			// firstAuthLName = strings.Split(strings.TrimSpace(authors[0]), " ")
-			bibLineByLine[bibIndices["authorIndex"]] = strings.ReplaceAll(bibLineByLine[bibIndices["authorIndex"]], authorField[r1Index], strings.Join(authors, " and "))
+			ns := strings.Join(authors, " and ")
+			curEntry.AddField("author", bibtex.BibConst(ns))
 		}
 		lName = strings.Split(strings.TrimSpace(authors[0]), " ")
 	}
 
-	isArXiv := strings.Contains(bibLineByLine[0], "arxiv")
+	isArXiv := strings.Contains(curEntry.CiteName, "arxiv")
 	if !bibKey && !isArXiv {
 		verbosePrint(verbose, "Updating the bib key", os.Stdout)
-		bibLineByLine[0] = strings.Replace(bibLineByLine[0], "_", ":", 1)
-		bibLineByLine[0] = strings.Replace(bibLineByLine[0], ",", "", 1)
+		curEntry.CiteName = strings.Replace(curEntry.CiteName, "_", ":", 1)
 		r := regexp.MustCompile(`\b10\.(\d+\.*)+/(?P<name>[a-zA-Z]+)\d*\.?(([^\s.])+\.*)+\b`)
-		if strings.Contains(bibLineByLine[bibIndices["doiIndex"]], "10.1016") {
+		if strings.Contains(curEntry.Fields["doi"].String(), "10.1016") {
 			r = regexp.MustCompile(`\b10.1016/j.(?P<name>[a-zA-Z]+)\d*\.(([^\s.])+\.*)+\b`)
 		}
-		venueName := r.FindStringSubmatch(bibLineByLine[bibIndices["doiIndex"]])
+		venueName := r.FindStringSubmatch(curEntry.Fields["doi"].String())
 		namedIndex := r.SubexpIndex("name")
 		if len(venueName) > namedIndex {
-			bibLineByLine[0] += `:` + strings.ToUpper(venueName[namedIndex])
+			curEntry.CiteName += `:` + strings.ToUpper(venueName[namedIndex])
 		}
-		bibLineByLine[0] += `,`
 	}
 
 	if !bibKey && isArXiv {
-		r := regexp.MustCompile(`\s*year\s?=\s?\{(\d{4})},`)
-		yearString := r.ReplaceAllString(bibLineByLine[bibIndices["yearIndex"]], "$1")
-		replaceString := `@misc{` + lName[len(lName)-1] + `:` + yearString + `:ArXiv,`
-		bibLineByLine[0] = strings.ReplaceAll(bibLineByLine[0], bibLineByLine[0], replaceString)
+		curEntry.CiteName = lName[len(lName)-1] + `:` + curEntry.Fields["year"].String() + `:ArXiv,`
 	}
 
-	if !fullJournal && bibIndices["journalIndex"] != 255 {
+	if j, ok := curEntry.Fields["journal"]; !fullJournal && ok {
 		verbosePrint(verbose, "Abbreviating the Journal names", os.Stdout)
-		bibLineByLine[bibIndices["journalIndex"]] = replaceJournalStrings(bibLineByLine[bibIndices["journalIndex"]])
+		curEntry.AddField("journal", bibtex.BibConst(replaceJournalStrings(j.String())))
 	}
 
 	verbosePrint(verbose, "Removing url and month", os.Stdout)
-	if bibIndices["urlIndex"] == 255 && bibIndices["monthIndex"] == 255 {
-		return strings.Join(bibLineByLine, "\n")
-	}
 
-	if bibIndices["urlIndex"] != 255 && bibIndices["monthIndex"] != 255 {
-		if bibIndices["urlIndex"] < bibIndices["monthIndex"] {
-			indices = append(indices, bibIndices["urlIndex"], bibIndices["monthIndex"])
-			return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
-		}
-		indices = append(indices, bibIndices["monthIndex"], bibIndices["urlIndex"])
-		return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
-	}
+	delete(curEntry.Fields, "url")
+	delete(curEntry.Fields, "month")
 
-	if bibIndices["urlIndex"] == 255 {
-		indices = append(indices, bibIndices["monthIndex"])
-		return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
-	}
-	indices = append(indices, bibIndices["urlIndex"])
-	return strings.TrimSpace(strings.Join(removeTwoIndexLinear(bibLineByLine, indices), "\n"))
+	return prettyPrint(curEntry)
 }
 
 func removeTwoIndexLinear(s []string, indices []uint) []string {
