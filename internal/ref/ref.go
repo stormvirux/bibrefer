@@ -112,7 +112,7 @@ func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry 
 	isArXiv := strings.Contains(curEntry.CiteName, "arxiv")
 	if !bibKey && !isArXiv {
 		verbosePrint(verbose, "Updating the bib key", os.Stdout)
-		curEntry.CiteName = strings.Replace(curEntry.CiteName, "_", ":", 1)
+		curEntry.CiteName = strings.TrimSpace(lName[len(lName)-1]) + `:` + curEntry.Fields["year"].String()
 		r := regexp.MustCompile(`\b10\.(\d+\.*)+/(?P<name>[a-zA-Z]+)\d*\.?(([^\s.])+\.*)+\b`)
 		if strings.Contains(curEntry.Fields["doi"].String(), "10.1016") {
 			r = regexp.MustCompile(`\b10.1016/j.(?P<name>[a-zA-Z]+)\d*\.(([^\s.])+\.*)+\b`)
