@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/nickng/bibtex"
+	"github.com/stormvirux/bibrefer/pkg/bytereplacer"
 	"github.com/stormvirux/bibrefer/pkg/request"
-	"go4.org/bytereplacer"
 	"log"
+	"math"
 	"os"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -24,115 +26,69 @@ type Clean struct {
 	BibFile     string
 }
 
+type refMeta struct {
+	doi        string
+	keyOld     string
+	keyNew     string
+	title      string
+	ref        string
+	refIndex   int
+	isValidDoi bool
+	isArxiv    bool
+}
+
 func (c *Clean) Run(query []string) (string, error) {
 	var (
-		queryTxt   string
 		references *bibtex.BibTex
 		err        error
 	)
 
-	switch {
-	case len(query) > 0:
-		queryTxt = strings.Join(query, " ")
-		verbosePrint(c.Verbose, fmt.Sprintf("Provided reference:\n %s",
-			queryTxt), os.Stdout)
-		references, err = bibtex.Parse(strings.NewReader(queryTxt))
-		if err != nil {
-			return "", fmt.Errorf("%w", err)
-		}
-	default:
-		verbosePrint(c.Verbose, fmt.Sprintf("Reading bibtex file: %s", c.BibFile), os.Stdout)
-		references, err = readBibtexFile(c.BibFile)
-		if err != nil {
-			return "", fmt.Errorf("%w", err)
-		}
+	references, err = readBib(query, c)
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
 	}
 
 	var (
-		finalRef        = make([]string, 0, len(references.Entries))
-		doiPresent      = make([]string, 0, len(references.Entries))
-		doiMissingIndex = make([]int, 0, len(references.Entries))
-		doiIssuesIndex  = make([]int, 0, len(references.Entries))
-		doiNames        = make([]string, 0, len(references.Entries))
-		doiArxiv        = make([]bool, 0, len(references.Entries))
-		j               = 0
+		doiPresents = make([]refMeta, 0, len(references.Entries))
+		doiMisses   = make([]refMeta, 0, len(references.Entries))
 	)
-
-	var key = make(map[string]string)
 
 	verbosePrint(c.Verbose, "Processing the bib file", os.Stdout)
 	for i := 0; i < len(references.Entries); i++ {
 		lowerDictKey(references.Entries[i].Fields)
 		if doiS, ok := references.Entries[i].Fields["doi"]; ok {
-			key[references.Entries[i].CiteName] = references.Entries[i].CiteName
-			doiPresent = append(doiPresent, doiS.String())
+			dp := refMeta{doi: doiS.String(),
+				keyOld: references.Entries[i].CiteName, refIndex: i}
+			if j, ok := references.Entries[i].Fields["journal"]; ok {
+				dp.title = j.String()
+			}
+			doiPresents = append(doiPresents, dp)
 			continue
 		}
-
-		doiMissingIndex = append(doiMissingIndex, i)
-		doiNames = append(doiNames, references.Entries[i].Fields["title"].String())
-		doiArxiv = append(doiArxiv, false)
+		dm := refMeta{refIndex: i, title: references.Entries[i].Fields["title"].String(),
+			isArxiv: false, keyOld: references.Entries[i].CiteName}
 		if v, ok := references.Entries[i].Fields["journal"]; ok {
-			doiArxiv[len(doiArxiv)-1] = strings.Contains(strings.ToLower(v.String()), "arxiv")
+			dm.isArxiv = strings.Contains(strings.ToLower(v.String()), "arxiv")
 		}
-		j++
+		doiMisses = append(doiMisses, dm)
 	}
+	finalRef, oldRef := asyncReq(doiPresents, doiMisses, c)
 
-	j = 0
-	for i, doiTxt := range doiPresent {
-		isValidDoi, strippedDoi := verifyDOI(doiTxt)
-		if !isValidDoi {
-			verbosePrint(c.Verbose, fmt.Sprintf("Invalid DOI %s. Searching with name: %s", doiTxt,
-				references.Entries[i].Fields["title"].String()), os.Stdout)
-			doiIssuesIndex = append(doiIssuesIndex, i)
-			j++
-		}
-
-		r, err := request.RefDoi(strippedDoi, "bibtex")
-		b, _ := bibtex.Parse(strings.NewReader(r))
-		key[references.Entries[i].CiteName] = b.Entries[0].CiteName
-		finalRef = append(finalRef, r)
-		if err != nil {
-			verbosePrint(c.Verbose, fmt.Sprintf("Cannot find with DOI %s. Searching with name: %s", doiTxt,
-				references.Entries[i].Fields["title"].String()), os.Stdout)
-			doiIssuesIndex = append(doiIssuesIndex, i)
-			j++
-		}
+	for v := range oldRef {
+		t := references.Entries[oldRef[v].refIndex]
+		finalRef = append(finalRef,
+			refMeta{doi: t.Fields["doi"].String(),
+				keyOld:   t.CiteName,
+				refIndex: oldRef[v].refIndex,
+				ref:      t.String(),
+				title:    t.Fields["title"].String()})
 	}
-
-	j = 0
-	var d string
-	for i, doiTxt := range doiMissingIndex {
-		switch doiArxiv[i] {
-		case true:
-			d, err = request.DoiDataCite(doiNames[i])
-		case false:
-			d, err = request.DoiCrossRef(doiNames[i])
-		}
-		if err != nil {
-			return "", fmt.Errorf("%w", err)
-		}
-		r, err := request.RefDoi(d, "bibtex")
-		if err != nil {
-			return "", fmt.Errorf("%w", err)
-		}
-		isEq := checkEq(r, references.Entries[doiTxt].Fields["title"].String())
-		if isEq {
-			b, _ := bibtex.Parse(strings.NewReader(r))
-			key[references.Entries[i].CiteName] = b.Entries[0].CiteName
-			finalRef = append(finalRef, r)
-		}
-		if r == "" || !isEq {
-			finalRef = append(finalRef, references.Entries[doiTxt].String())
-			j++
-		}
-	}
-	verbosePrint(c.Verbose, fmt.Sprintf("%d entries not found. Using old ones\n", j), os.Stdout)
+	var key = make(map[string]string, len(references.Entries))
+	keyTable(finalRef, key)
 	bibBuilder := &strings.Builder{}
-
 	if c.BibKey && c.FullAuthor && c.FullJournal {
 		for i := 0; i < len(finalRef); i++ {
-			bibBuilder.WriteString(finalRef[i] + "\n")
+			bibBuilder.WriteString(finalRef[i].ref + "\n")
 		}
 		if c.BibFile == "" {
 			return bibBuilder.String(), nil
@@ -141,21 +97,19 @@ func (c *Clean) Run(query []string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
-
 		err = modifyTex(c.TexFile, key)
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
 		return "", nil
 	}
-	// TODO: Add key for keeping original bibkey
 	for i := 0; i < len(finalRef); i++ {
 		s := bibCleanWithFlags(c.BibKey, c.FullJournal, c.FullAuthor,
-			finalRef[i], c.Verbose)
+			finalRef[i].ref, c.Verbose)
 		b, _ := bibtex.Parse(strings.NewReader(s))
 		key[references.Entries[i].CiteName] = b.Entries[0].CiteName
+		// finalRef[i].keyNew = b.Entries[0].CiteName
 		bibBuilder.WriteString(s + "\n")
-
 	}
 	if c.BibFile == "" {
 		return bibBuilder.String(), nil
@@ -164,13 +118,189 @@ func (c *Clean) Run(query []string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-
 	err = modifyTex(c.TexFile, key)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
 	return "", nil
+}
 
+func readBib(query []string, c *Clean) (*bibtex.BibTex, error) {
+	var references *bibtex.BibTex
+	var err error
+	switch {
+	case len(query) > 0:
+		queryTxt := strings.Join(query, " ")
+		verbosePrint(c.Verbose, fmt.Sprintf("Provided reference:\n %s",
+			queryTxt), os.Stdout)
+		references, err = bibtex.Parse(strings.NewReader(queryTxt))
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+	default:
+		verbosePrint(c.Verbose, fmt.Sprintf("Reading bibtex file: %s", c.BibFile), os.Stdout)
+		references, err = readBibtexFile(c.BibFile)
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+	}
+	return references, nil
+}
+
+func keyTable(doiPresents []refMeta, key map[string]string) {
+	for i := range doiPresents {
+		key[doiPresents[i].keyOld] = doiPresents[i].keyNew
+	}
+}
+
+func streamInput(done <-chan struct{}, inputs []refMeta) <-chan refMeta {
+	inputCh := make(chan refMeta)
+	go func() {
+		defer close(inputCh)
+		for _, input := range inputs {
+			select {
+			case inputCh <- input:
+			case <-done:
+				break
+			}
+		}
+	}()
+	return inputCh
+}
+
+func loadBalance(len1, len2 int) (int, int, int) {
+	const maxConcurrent = 20
+	l := float64(len1) + float64(len2)
+	var mx1 = int(math.Ceil((maxConcurrent / l) * float64(len1)))
+	var mx2 = int(math.Floor((maxConcurrent / l) * float64(len2)))
+	isLessThan := len1+len2 < 20
+	if isLessThan {
+		mx1 = len1
+		mx2 = len2
+	}
+	var toAdd = mx1 + mx2
+	return mx1, mx2, toAdd
+}
+
+func asyncReq(doiPresents []refMeta, doiMisses []refMeta, c *Clean) ([]refMeta, []refMeta) {
+	type result struct {
+		entry refMeta
+		err   error
+	}
+	mx1, mx2, toAdd := loadBalance(len(doiPresents), len(doiMisses))
+	done := make(chan struct{})
+	defer close(done)
+
+	inputChP := streamInput(done, doiPresents)
+	inputChM := streamInput(done, doiMisses)
+	resultChP := make(chan result, len(doiPresents))
+	resultChM := make(chan result, len(doiMisses))
+
+	var wg sync.WaitGroup
+	wg.Add(toAdd)
+
+	for i := 0; i < mx1; i++ {
+		go func() {
+			for input := range inputChP {
+				res, err := fetchRef(input, c)
+				resultChP <- result{entry: res, err: err}
+			}
+			wg.Done()
+		}()
+	}
+	for i := 0; i < mx2; i++ {
+		go func() {
+			for input := range inputChM {
+				res, err := fetchMissing(input, c)
+				resultChM <- result{entry: res, err: err}
+			}
+			wg.Done()
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(resultChP)
+		close(resultChM)
+	}()
+
+	var finalRef = make([]refMeta, 0, len(doiPresents)+len(doiMisses))
+	var oldRef = make([]refMeta, 0, len(doiMisses))
+	for result := range resultChP {
+		if result.err != nil {
+			log.Printf("Error for doi %s:%v", result.entry.doi, result.err)
+		}
+		finalRef = append(finalRef, result.entry)
+	}
+	for result := range resultChM {
+		if result.err != nil {
+			log.Printf("Error for title %s:%v", result.entry.title, result.err)
+		}
+		if result.entry.ref != "" {
+			finalRef = append(finalRef, result.entry)
+			continue
+		}
+		oldRef = append(oldRef, result.entry)
+	}
+	return finalRef, oldRef
+}
+
+func fetchRef(doiP refMeta, c *Clean) (refMeta, error) {
+	isValidDoi, strippedDoi := verifyDOI(doiP.doi)
+	doiP.isValidDoi = true
+	if !isValidDoi {
+		verbosePrint(c.Verbose, fmt.Sprintf("Invalid DOI %s. Searching with name: %s", doiP.doi,
+			doiP.title), os.Stdout)
+		doiP.isValidDoi = false
+	}
+	r, err := request.RefDoi(strippedDoi, "bibtex")
+
+	if err != nil {
+		verbosePrint(c.Verbose, fmt.Sprintf("Cannot find with DOI %s. Searching with name: %s", doiP.doi,
+			doiP.title), os.Stdout)
+		doiP.isValidDoi = false
+		return doiP, nil
+	}
+	b, _ := bibtex.Parse(strings.NewReader(r))
+	doiP.keyNew = b.Entries[0].CiteName
+	doiP.ref = r
+	return doiP, err
+}
+
+func fetchMissing(doiM refMeta, c *Clean) (refMeta, error) {
+	var (
+		d   string
+		err error
+	)
+
+	switch doiM.isArxiv {
+	case true:
+		fmt.Println("Fetching from arxiv")
+		d, err = request.DoiDataCite(doiM.title)
+	case false:
+		fmt.Println("Fetching from crossref")
+		d, err = request.DoiCrossRef(doiM.title)
+		fmt.Println("fetched from CrossRef")
+	}
+	if err != nil {
+		return doiM, fmt.Errorf("%w", err)
+	}
+	verbosePrint(c.Verbose, fmt.Sprintf("Found doi %s for title %s", d, doiM.title), os.Stdout)
+	r, err := request.RefDoi(d, "bibtex")
+	if err != nil {
+		return doiM, fmt.Errorf("%w", err)
+	}
+	isEq := checkEq(r, doiM.title)
+	if isEq {
+		b, _ := bibtex.Parse(strings.NewReader(r))
+		doiM.keyNew = b.Entries[0].CiteName
+		doiM.ref = r
+	}
+	if r == "" || !isEq {
+		doiM.ref = ""
+		// doiM.keepOld = true
+	}
+	fmt.Printf("Returning with %s\n", doiM.ref)
+	return doiM, err
 }
 
 func writeFile(out string, file string) error {
@@ -196,20 +326,6 @@ func writeFile(out string, file string) error {
 func checkEq(n string, o string) bool {
 	p, _ := bibtex.Parse(strings.NewReader(n))
 	return strings.EqualFold(p.Entries[0].Fields["title"].String(), o)
-	/*r := regexp.MustCompile(`{(?P<name>[\p{L}\d].*)}`)
-	for i := 0; i < len(bib); i++ {
-		if strings.Contains(bib[i], "title") {
-			t := r.FindStringSubmatch(bib[i])
-			namedIndex := r.SubexpIndex("name")
-			if namedIndex == -1 {
-				return false
-			}
-			if len(t) > namedIndex {
-
-			}
-		}
-	}
-	return false*/
 }
 
 func lowerDictKey(m map[string]bibtex.BibString) {
@@ -222,7 +338,7 @@ func lowerDictKey(m map[string]bibtex.BibString) {
 }
 
 func modifyTex(texfiles []string, key map[string]string) error {
-	var rKeys []string
+	rKeys := make([]string, 0, 2*len(key))
 	for k, v := range key {
 		rKeys = append(rKeys, k, v)
 	}
