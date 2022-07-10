@@ -141,7 +141,7 @@ func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry 
 	return prettyPrint(curEntry)
 }
 
-func removeTwoIndexLinear(s []string, indices []uint) []string {
+/*func removeTwoIndexLinear(s []string, indices []uint) []string {
 	ret := make([]string, len(s)-len(indices)+1)
 	w := 0
 loop:
@@ -155,7 +155,7 @@ loop:
 		w++
 	}
 	return ret[0:w]
-}
+}*/
 
 func replaceJournalStrings(journalEntry string) string {
 	var abbr = []string{"Journal", "J.", "Electrical", "Elect.", "Computer", "Comput.", "Engineering", "Eng.", "Communications", "Commun.", "Magazine", "Mag.", "Aerospace", "Aerosp.", "Electronics", "Electron.", "Systems", "Syst.", "Annals", "Ann.", "History", "Hist.", "Computing", "Comput.", "Propagation", "Propag.", "Letters", "Lett.", "Society", "Soc.", "Tutorials", "Tuts.", "Intelligence", "Intell.", "Computational", "Comput.", "Intelligence", "Intell.", "Science", "Sci.", "Applications", "Appl.", "Architecture", "Archit.", "Graphics", "Graph.", "Design", "Des.", "Distributed", "Distrib.", "Management", "Manag.", "Review", "Rev.", "Medicine", "Med.", "Sensing", "Sens.", "Professional", "Prof.", "Industry", "Ind.", "Industrial", "Ind.", "Instrumentation", "Instrum.", "Measurement", "Meas.", "Intelligent", "Intell.", "Transportation", "Transp.", "Networking", "Netw.", "Robotics", "Robot.", "Automation", "Autom.", "Selected", "Sel.", "Automation", "Autom.", "Applied", "Appl.", "Processing", "Process.", "Techniques", "Techn.", "Technology", "Technol.", "Sciences", "Sci.", "Software", "Softw.", "Transactions", "Trans.", "Advanced", "Adv.", "Information", "Inf.", "Knowledge", "Knowl.", "Learning", "Learn.", "Analysis", "Anal.", "Machine", "Mach.", "Reliability", "Rel.", "Optimization", "Optim.", "Research", "Res.", "Mechanics", "Mech.", "Proceedings", "Proc.", "Royal", "R.", "Society", "Soc", "Annals", "Ann.", "Resources", "Resour.", "Surface", "Surf.", "Processes", "Proc.", "National", "Nat.", "Computers", "Comput.", "Geotechnics", "Geotech.", "Academy", "Acad.", "Sciences", "Sci.", "Quaternary", "Quat.", "Physical", "Phys.", "Planetary", "Planet.", "Quarterly", "Q.", "Geological", "Geol.", "Statistical", "Stat.", "Applied", "Appl.", "Physics", "Phys.", "Geoscience", "Geosci.", "Landforms", "Land.", "Science", "Sci.", "Annual", "Ann.", "International", "Int.", "Numerical", "Numer.", "Methods", "Meth.", "Geomechanics", "Geomech.", "Analytical", "Anal.", "Advances", "Adv.", "Modeling", "Mod.", "for", "", "of", "", "and", "", "in", "", "on", "", "&", "", "the", ""}

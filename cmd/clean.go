@@ -77,7 +77,7 @@ bibrefer clean -k "@Article{andrews2011tractable,
 `,
 }
 
-func cleanUsage() string {
+/*func cleanUsage() string {
 	return `
 Usage: {{if .Runnable}}
   {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
@@ -105,7 +105,7 @@ Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
 
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `
-}
+}*/
 
 func init() {
 	rootCmd.AddCommand(cleanCmd)

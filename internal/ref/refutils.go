@@ -27,6 +27,6 @@ func prettyPrint(entry *bibtex.BibEntry) string {
 		}
 	}
 	bt.Truncate(bt.Len() - 2)
-	bt.WriteString(fmt.Sprintf("\n}\n"))
+	bt.WriteString("\n}\n")
 	return bt.String()
 }
