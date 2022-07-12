@@ -39,9 +39,12 @@ func DoiDataCite(query string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", strippedDoi, host))
 	urlQuery := make(map[string]string)
+	query = strings.ReplaceAll(query, ":", " ")
+	query = strings.ReplaceAll(query, "{", "")
+	query = strings.ReplaceAll(query, "}", "")
 	urlQuery["query"] = "titles.title:" + query
 	res, err := bibDo(client, req, urlQuery)
 	if err != nil {
@@ -60,7 +63,7 @@ func DoiDataCite(query string) (string, error) {
 		return "", fmt.Errorf("%w", err)
 	}
 	if len(data) < 1 {
-		return "", fmt.Errorf("could not find any article with that name")
+		return "", nil
 	}
 	return data[0].DOI, err
 }
@@ -78,7 +81,7 @@ func DoiCrossRef(query string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", strippedDoi, host))
 	urlQuery := make(map[string]string)
 	urlQuery["rows"] = "1"
@@ -119,7 +122,7 @@ func RefDoi(query string, output string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 	// verbosePrint(verbose, fmt.Sprintf("Getting reference for DOI: %s from host: %s", query, host), os.Stdout)
 	res, err := bibDo(client, req, map[string]string{})
 	if err != nil {
@@ -157,6 +160,9 @@ func bibRequest(method, path string, body io.Reader, query map[string]string) (*
 	for k, v := range query {
 		req.Header.Add(k, v)
 	}
+	var email = "bibrefer@gmail.com"
+	req.Header.Add("User-Agent", fmt.Sprintf("bibrefer, (github.com/stormvirux/bibrefer/; mailto: %s)", email))
+
 	return req, nil
 }
 
@@ -171,8 +177,8 @@ func bibDo(client *http.Client, req *http.Request, query map[string]string) (*ht
 
 	res, err := client.Do(req)
 	if err != nil {
+		fmt.Printf("[Error] %v\n", err)
 		return nil, err
 	}
-	// Any common handling of response
 	return res, nil
 }
