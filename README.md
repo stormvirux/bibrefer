@@ -1,5 +1,6 @@
 ## Bibrefer
 
+[![Release](https://img.shields.io/github/release/stormvirux/bibrefer.svg?style=flat-square)](https://github.com/stormvirux/bibrefer/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/stormvirux/bibrefer)](https://goreportcard.com/report/github.com/stormvirux/bibrefer)
 [![Coverage Status](https://coveralls.io/repos/github/stormvirux/bibrefer/badge.svg)](https://coveralls.io/github/stormvirux/bibrefer)
 ![Build Status](https://github.com/stormvirux/bibrefer/actions/workflows/bibrefer.yml/badge.svg)
