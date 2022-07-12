@@ -3,6 +3,7 @@ module github.com/stormvirux/bibrefer
 go 1.18
 
 require (
+	github.com/akrylysov/pogreb v0.10.1
 	github.com/goccy/go-json v0.9.7
 	github.com/google/go-cmp v0.5.8
 	github.com/hscells/doi v0.0.0-20170821055049-1a5819c7d576
