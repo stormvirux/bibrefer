@@ -35,6 +35,7 @@ type refMeta struct {
 	refIndex   int
 	isValidDoi bool
 	isArxiv    bool
+	author     string
 }
 
 func (c *Clean) Run(query []string) (string, error) {
@@ -62,6 +63,9 @@ func (c *Clean) Run(query []string) (string, error) {
 			if j, ok := references.Entries[i].Fields["journal"]; ok {
 				dp.title = j.String()
 			}
+			if j, ok := references.Entries[i].Fields["author"]; ok {
+				dp.author = j.String()
+			}
 			doiPresents = append(doiPresents, dp)
 			continue
 		}
@@ -70,19 +74,13 @@ func (c *Clean) Run(query []string) (string, error) {
 		if v, ok := references.Entries[i].Fields["journal"]; ok {
 			dm.isArxiv = strings.Contains(strings.ToLower(v.String()), "arxiv")
 		}
+		if v, ok := references.Entries[i].Fields["author"]; ok {
+			dm.author = v.String()
+		}
 		doiMisses = append(doiMisses, dm)
 	}
 	finalRef, oldRef := asyncReq(doiPresents, doiMisses, c)
 
-	for v := range oldRef {
-		t := references.Entries[oldRef[v].refIndex]
-		finalRef = append(finalRef,
-			refMeta{doi: t.Fields["doi"].String(),
-				keyOld:   t.CiteName,
-				refIndex: oldRef[v].refIndex,
-				ref:      t.String(),
-				title:    t.Fields["title"].String()})
-	}
 	var key = make(map[string]string, len(references.Entries))
 	keyTable(finalRef, key)
 	bibBuilder := &strings.Builder{}
@@ -104,12 +102,23 @@ func (c *Clean) Run(query []string) (string, error) {
 		return "", nil
 	}
 	for i := 0; i < len(finalRef); i++ {
+		entry, _ := bibtex.Parse(strings.NewReader(finalRef[i].ref))
+		if _, ok := entry.Entries[0].Fields["title"]; !ok && finalRef[i].title != "" {
+			entry.Entries[0].Fields["title"] = bibtex.BibConst(finalRef[i].title)
+		}
+		if _, ok := entry.Entries[0].Fields["author"]; !ok && finalRef[i].author != "" {
+			entry.Entries[0].Fields["author"] = bibtex.BibConst(finalRef[i].author)
+		}
 		s := bibCleanWithFlags(c.BibKey, c.FullJournal, c.FullAuthor,
-			finalRef[i].ref, c.Verbose)
+			entry.Entries[0].String(), c.Verbose)
 		b, _ := bibtex.Parse(strings.NewReader(s))
 		key[references.Entries[i].CiteName] = b.Entries[0].CiteName
 		// finalRef[i].keyNew = b.Entries[0].CiteName
 		bibBuilder.WriteString(s + "\n")
+	}
+	for v := range oldRef {
+		t := references.Entries[oldRef[v].refIndex]
+		bibBuilder.WriteString(t.String() + "\n")
 	}
 	if c.BibFile == "" {
 		return bibBuilder.String(), nil
@@ -268,27 +277,29 @@ func fetchRef(doiP refMeta, c *Clean) (refMeta, error) {
 
 func fetchMissing(doiM refMeta, c *Clean) (refMeta, error) {
 	var (
-		d   string
-		err error
+		d    string
+		err1 error
+		err2 error
 	)
 
-	switch doiM.isArxiv {
-	case true:
-		fmt.Println("Fetching from arxiv")
-		d, err = request.DoiDataCite(doiM.title)
-	case false:
-		fmt.Println("Fetching from crossref")
-		d, err = request.DoiCrossRef(doiM.title)
-		fmt.Println("fetched from CrossRef")
+	if doiM.isArxiv {
+		d, err1 = request.DoiDataCite(doiM.title)
 	}
-	if err != nil {
-		return doiM, fmt.Errorf("%w", err)
+
+	if !doiM.isArxiv || d == "" {
+		d, err2 = request.DoiCrossRef(doiM.title)
 	}
+
+	if err1 != nil && err2 != nil {
+		return doiM, fmt.Errorf("%w\n %v", err1, err2)
+	}
+
 	verbosePrint(c.Verbose, fmt.Sprintf("Found doi %s for title %s", d, doiM.title), os.Stdout)
 	r, err := request.RefDoi(d, "bibtex")
 	if err != nil {
 		return doiM, fmt.Errorf("%w", err)
 	}
+
 	isEq := checkEq(r, doiM.title)
 	if isEq {
 		b, _ := bibtex.Parse(strings.NewReader(r))
@@ -299,7 +310,6 @@ func fetchMissing(doiM refMeta, c *Clean) (refMeta, error) {
 		doiM.ref = ""
 		// doiM.keepOld = true
 	}
-	fmt.Printf("Returning with %s\n", doiM.ref)
 	return doiM, err
 }
 
@@ -324,8 +334,26 @@ func writeFile(out string, file string) error {
 }
 
 func checkEq(n string, o string) bool {
+	if n == "" {
+		return false
+	}
+	var nt string
+	var replace = []string{"{", "", "}", "", "(", "", ")", "",
+		"\\textemdash", " ", "--", " ", "-", " ", "[", "", "]", "",
+		"Accepted From Open Call", "", "$", "", "\\mathsemicolon", "",
+		";", "", ":", "", ",", "", ".", "", "?", "", "!", ""}
+
 	p, _ := bibtex.Parse(strings.NewReader(n))
-	return strings.EqualFold(p.Entries[0].Fields["title"].String(), o)
+	if len(p.Entries) == 0 {
+		return false
+	}
+	o = strings.NewReplacer(replace...).Replace(o)
+	o = strings.ReplaceAll(o, " ", "")
+	if t, ok := p.Entries[0].Fields["title"]; ok {
+		nt = strings.NewReplacer(replace...).Replace(t.String())
+		nt = strings.ReplaceAll(nt, " ", "")
+	}
+	return strings.EqualFold(nt, o)
 }
 
 func lowerDictKey(m map[string]bibtex.BibString) {
