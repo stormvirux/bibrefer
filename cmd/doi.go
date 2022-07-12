@@ -50,7 +50,7 @@ var doiCmd = &cobra.Command{
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err)
 			return err
 		}
-		fmt.Printf("%s", doi)
+		fmt.Printf("\n%s\n", doi)
 		return nil
 	},
 }

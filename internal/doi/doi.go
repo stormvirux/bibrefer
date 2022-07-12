@@ -53,6 +53,10 @@ func (a *Doi) Run(query []string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
+		if extractedDoi == "" {
+			fmt.Printf("\n[Info] No DOI found with DataCite. Try CrossRef\n")
+			return "", nil
+		}
 
 		verbosePrint(a.Verbose, fmt.Sprintf("\nDetected DOI: %s\n ", extractedDoi), os.Stdout)
 		// fmt.Println(extractedDoi)
