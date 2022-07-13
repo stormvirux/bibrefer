@@ -2,7 +2,6 @@ package ref
 
 import (
 	"fmt"
-	"github.com/akrylysov/pogreb"
 	"github.com/hscells/doi"
 	"github.com/nickng/bibtex"
 	"github.com/stormvirux/bibrefer/pkg/request"
@@ -173,9 +172,9 @@ func bibCleanWithFlags(bibKey bool, fullJournal bool, fullAuthor bool, bibEntry 
 		verbosePrint(verbose, "Abbreviating the Journal names", os.Stdout)
 		var replace = []string{"{", "", "}", "", "(", "", ")", ""}
 		t := strings.NewReplacer(replace...).Replace(strings.TrimSpace(j.String()))
-		journal := bibtex.BibConst(replaceJournalStringsDB(strings.ToLower(strings.TrimSpace(t))))
-		curEntry.AddField("journal", journal)
-		if journal == "" {
+		if val, ok := d[strings.ToLower(strings.TrimSpace(t))]; ok {
+			curEntry.AddField("journal", bibtex.BibConst(val))
+		} else {
 			curEntry.AddField("journal", bibtex.BibConst(replaceJournalStrings(j.String())))
 		}
 	}
@@ -205,7 +204,7 @@ loop:
 }
 */
 
-func replaceJournalStringsDB(key string) string {
+/*func replaceJournalStringsDB(key string) string {
 	db, err := pogreb.Open("abbrv.db", nil)
 	if err != nil {
 		log.Fatal("Unable to open database", err)
@@ -227,14 +226,13 @@ func replaceJournalStringsDB(key string) string {
 			log.Fatal(err)
 		}
 		log.Printf("%s %s", key, val)
-	}*/
-
-	value, err := db.Get([]byte(key))
+	}
+	value, err := db.Get([]byte(strings.ToLower(key)))
 	if err != nil {
 		log.Panic("Unable to get value for key "+key, err)
 	}
 	return string(value)
-}
+}*/
 
 func replaceJournalStrings(journalEntry string) string {
 	var abbr = []string{"Journal", "J.", "Electrical",
